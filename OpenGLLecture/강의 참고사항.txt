@@ -1,0 +1,14 @@
+1일차
+# 참고 사이트
+OpenGL tutorial : https://www.opengl-tutorial.org/kr/
+OpenGL API : https://docs.gl/
+유튜브 참고 사이트 : https://www.youtube.com/TheChernoProject/video
+이론에 관한 사이트 : https://www.songho.ca/opengl/index.html
+
+# 코드 참고 github 사이트 : https://github.com/diskhkme/OpenGL_Lecture_Material
+- commit을 눌러서 차근차근 보자
+- '+' 부분 : 추가된 부분
+  '-' 부분 : 제거된 부분
+
+# function의 parameter와 용도는 OpenGL API를 참고
+# 코드의 흐름을 파악하는게 우선 중요

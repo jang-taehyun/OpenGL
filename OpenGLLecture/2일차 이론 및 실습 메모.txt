@@ -1,0 +1,49 @@
+* 이론
+# Modeling
+- 3D model을 triangle mesh(polygon mesh)를 이용해 표현한다.
+  - 3D model을 표현하는 방법
+    Implicit representation : 수식을 이용해 3d 모델 표현
+    explicit representation : polygon mesh을 이용해 3d 모델 표현
+    -> triangle mesh의 vertex 위치는 implicit representation을 통해 sampling(임의적으로 따온다)을 한다.
+    -> 때문에 3d model을 정확학 표현할 수 없다.
+    indexed representation : vertex data를 저장할 때 index array를 같이 사용하여 3D model을 표현
+- 렌더링 시 triangle을 사용하는 이유 : 가장 간단한 다각형(polygon)이기 때문
+* 컴퓨터 그래픽스에서 가장 중요한 핵심 : triangle이 하나의 평면 위에 존재한다!
+- LOD(levels of detail) : 3d 모델이 가까이 있으면 자세한 모델을 렌더링하고, 3d 모델이 멀어지면 간단한 모델을 렌더링한다.
+  -> 한 3d 모델을 간략한 모델, 자세한 모델을 만들고 카메라와 3d 모델 사이의 거리에 따라 어떤 모델을 렌더링할 지 결정한다.
+- vertex array : vertex data를 저장하는 array
+  - explicit representation으로 표현된 3d model을 GPU로 전달할 때 사용
+  - triangle을 이루는 vertex data를 저장
+    - vertex에 존재하는 datat(vertex data) : position, UV 좌표, color, normal vector 등이 모두 들어가 있다.
+  - index array를 같이 사용한다.
+    - vertex data를 저장할 때, vertex data가 중복 저장되는 경우가 발생한다. 이를 방지하기 위해 나온 것이 index array
+    - index array : 모든 vertex data가 vertex array에 한번만 저장 & index array에는 triangle의 vertex data가 저장된 'vertex array의 index'를 저장한다.(vertex array와 index array.png 참고)
+
+# Normal
+- surface : 3d model의 표면
+- normal(법선)의 의미 : 컴퓨터 그래픽스에서 surface의 normal이 위로 향하면 surface를 그리고, surface의 normal이 아래로 향하면 surface를 그리지 않는다.
+  - surface normal의 용도 : lighting 계산, triangle의 normal vector의 방향에 따른 drawing 유무 결정 등등
+    * surface normal은 컴퓨터 그래픽스에서 중요한 요소 중 하나이다!
+  - 모든 normal vector는 unit vector로 만들어서 사용한다.
+  - triangle(p1, p2, p3)가 주어지고, v1 = p1에서 p2로 가는 vector, v2 = p1에서 p3로 가는 vector일 때
+    - vertex(p1, p2, p3)가 바깥 방향으로 바라 볼때 CCW(counter-clockwise, 반시계 방향)로 전달되면(p1, p2, p3 순으로 전달)
+      -> normal vector의 방향은 위 쪽을 바라보게 된다.('v1 x v2'를 하기 때문)
+    - vertex(p1, p2, p3)가 바깥 방향으로 바라 볼때 CW(clockwise, 시계 방향)로 전달되면(p1, p3, p2 순으로 전달)
+      -> normal vector의 방향은 아래 쪽을 바라보게 된다.('v2 x v1'을 하기 때문)
+    * 3d model이 안 보일 때 제일 먼저 CW 인지 CCW인지 확인
+    - index array에 vertex data를 CCW 순서로 집어넣어야 한다.(surface normal.png 참고)
+
+# Obj Format
+- approximate : vertex의 normal vector를, 인접한 triangle의 normal vector의 평균으로 지정한다.(approximate.png 참고)
+  - approximate를 통해 부드러운 suface를 얻는다.
+
+
+* 실기
+- shader : shader 언어로 코딩된 프로그램
+  - CPU side에서 코딩 후 GPU side로 전달
+  - CPU side에서 shader를 컴파일 및 생성하는 명령어 실행
+  - 화면에 이미지가 어떻게 표시되야 하는 지 계산하는 프로그램
+- shader program의 종류 : vertex shader, fragment shader
+  - vertex shader의 output이 fragment shader의 input이 된다.
+  - vertex shader와 fragment shader는 항상 필요하다.
+    -> vertex shader와 fragment shader를 묶어 하나의 shader program으로 만든다.
