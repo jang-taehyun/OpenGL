@@ -1,10 +1,83 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
 
 // window size setting
 const int WIN_WIDTH = 800;
 const int WIN_HEIGHT = 600;
+
+// polygon setting
+const int vertexNum = 12;
+const int dimension = 3;
+const int triangleNum = 2;
+
+// shader file
+struct ShaderProgramSource
+{
+    std::string VertexSource;
+    std::string FragSource;
+};
+
+// error handling
+#define ASSERT(x) if((!x)) __debugbreak();       // __debugbreak()는 MSVC에만 사용 가능
+#define GLCALL(x) GLClearError();\
+                  x;\
+                  ASSERT(GLLogCall(#x, __FILE__, __LINE__))
+
+static void GLClearError()
+{
+    // glGetError()는 error를 하니씩만 반환하기 때문에, 한 번에 모든 error를 뽑아내는 것이 필요함
+    while (glGetError() != GL_NO_ERROR);         // GL_NO_ERROR == 0
+}
+static bool GLLogCall(const char* function, const char* file, int line)
+{
+    
+    while (GLenum error = glGetError())
+    {
+        std::cout << "[OpenGL Error] (" << error << ") : " << function << " "
+            << file << " in line " << line << std::endl;
+        return false;
+    }
+    return true;
+}
+
+// shader parsing function
+static ShaderProgramSource ParseShader(const std::string& filepath)
+{
+    std::ifstream stream(filepath);
+
+    enum class ShaderType
+    {
+        NONE = -1, VERTEX = 0, FRAGMENT = 1
+    };
+
+    std::string line;
+    std::stringstream ss[2];
+    ShaderType type = ShaderType::NONE;
+    while (getline(stream, line))
+    {
+        if (line.find("#shader") != std::string::npos)
+        {
+            if (line.find("vertex") != std::string::npos)
+            {
+                type = ShaderType::VERTEX;
+            }
+            else if (line.find("fragment") != std::string::npos)
+            {
+                type = ShaderType::FRAGMENT;
+            }
+        }
+        else
+        {
+            ss[(int)type] << line << '\n';
+        }
+    }
+
+    return { ss[0].str(), ss[1].str() };
+}
 
 // shader compile function
 static unsigned int CompileShader(unsigned int type, const std::string& source)
@@ -14,26 +87,23 @@ static unsigned int CompileShader(unsigned int type, const std::string& source)
     const char* src = source.c_str();
 
     // shader source code 해석 방법 & shader source code를 GPU에 전달
-    glShaderSource(id,          // complie된 shader의 id를 저장할 위치
-                   1,           // compile할 source code의 개수
-                   &src,        // 실제 source code가 있는 문자열 주소값
-                   nullptr);    // 해당 문자열 전체를 사용(nullptr), 아니라면 길이 명시
+    glShaderSource(id, 1, &src, nullptr);
 
     // shader source code 컴파일
     glCompileShader(id);
 
     // Error Handling
     int result;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &result); //셰이더 프로그램으로부터 컴파일 결과(log)를 얻어옴
-    if (result == GL_FALSE) //컴파일에 실패한 경우
+    glGetShaderiv(id, GL_COMPILE_STATUS, &result);              //셰이더 프로그램으로부터 컴파일 결과(log)를 얻어옴
+    if (result == GL_FALSE)                                     //컴파일에 실패한 경우
     {
         int length;
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length); //log의 길이를 얻어옴
-        char* message = (char*)alloca(length * sizeof(char)); //stack에 동적할당
-        glGetShaderInfoLog(id, length, &length, message); //길이만큼 log를 얻어옴
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);         //log의 길이를 얻어옴
+        char* message = (char*)alloca(length * sizeof(char));   //stack에 동적할당
+        glGetShaderInfoLog(id, length, &length, message);       //길이만큼 log를 얻어옴
         std::cout << "셰이더 컴파일 실패! " << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << std::endl;
         std::cout << message << std::endl;
-        glDeleteShader(id); //컴파일 실패한 경우 셰이더 삭제
+        glDeleteShader(id);                                     //컴파일 실패한 경우 셰이더 삭제
         return 0;
     }
 
@@ -87,7 +157,7 @@ int main()
     // window's context 설정
     glfwMakeContextCurrent(window);
 
-    // GLEW 초기화
+    // GLEW 초기화(항상 glfwMakeContextCurrent()가 호출된 후에 glewInit()을 수행할 것)
     if (glewInit() != GLEW_OK)
     {
         std::cout << "Initializing GLEW is failed!" << std::endl;
@@ -98,60 +168,48 @@ int main()
     // OpenGL version 출력
     std::cout << glGetString(GL_VERSION) << std::endl;
 
-    // 삼각형 정의(현재 CPU side memory에 존재)
-    float position[] =
+    // 사각형 정의(현재 CPU side memory에 존재)
+    float position[vertexNum] =
     {
-        -0.5f, -0.5f, 0.f,
-         0.f,   0.5f, 0.f,
-         0.5f, -0.5f, 0.f
+        -0.5f, -0.5f, 0.f,          // 0번 vertex
+         0.5f, -0.5f, 0.f,          // 1번 vertex
+         0.5f,  0.5f, 0.f,          // 2번 vertex
+        -0.5f,  0.5f, 0.f           // 3번 vertex
     };
 
-    // buffer 생성
+    // 하나의 triangle을 이루고 있는 vertex들을 기술(CCW 순서로 기술)
+    unsigned int indices[triangleNum * 3] =
+    {
+        0, 1, 2,
+        2, 3, 0
+    };
+
+    // vertex array buffer 생성 및 data을 GPU에 전달
     unsigned int bufferID;
-    glGenBuffers(1, &bufferID);                     // buffer 생성
-    glBindBuffer(GL_ARRAY_BUFFER, bufferID);        // 생성한 buffer의 종류 명시 & bind
+    glGenBuffers(1, &bufferID);                                                         // buffer 생성
+    glBindBuffer(GL_ARRAY_BUFFER, bufferID);                                            // 생성한 buffer의 종류 명시 & bind
+    glBufferData(GL_ARRAY_BUFFER, vertexNum * sizeof(float), position, GL_STATIC_DRAW); // vertex array buffer에 저장된 삼각형 data을 GPU에 전달
+
+    // index array buffer 생성 및 data를 GPU에 전달
+    unsigned int ibo;
+    glGenBuffers(1, &ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,           // buffer type
+        triangleNum * 3 * sizeof(unsigned int),     // 전달할 data 크기
+        indices,                                    // data가 저장된 포인터
+        GL_STATIC_DRAW);                            // data 사용 패턴
     
-    // buffer에 저장된 삼각형 data을 GPU에 전달
-    glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(float), position, GL_STATIC_DRAW);
+    
 
-    // -------------- buffer에 저장된 data 해석 방법 명시 --------------- //
-    // glEnableVertexAttribArray의 parameter와 glVertexAttribPointer의 parameter 1의 의미 : vertex shader에 저장할 location
+    // GPU에 저장된 data 저장 위치, data 해석 방법 설정
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * dimension, 0);
 
-    // data 저장 위치 설정
-    glEnableVertexAttribArray(0);                   // vertex shader의 0번 location에 저장
-
-    // data를 어떻게 나눠서 해석할지 설정
-    glVertexAttribPointer(0,                        // 해석할 data가 저장된 location(glEnableVertexAttribArray에서 설정한 location)
-                          3,                        // 하나의 vertex에 몇개의 data를 넘기는지(vertex data 중 넘길 data의 개수), 여기에선 위치정보(xyz 좌표)만 있으므로 3
-                          GL_FLOAT,                 // data의 자료형
-                          GL_FALSE,                 // normalization 유무
-                          sizeof(float) * 3,        // stride : vertex 하나의 크기(byte 단위)
-                          0);                       // offset : 시작할 index 번호
-
-    // -------------- shader 생성 및 compile --------------- //
-    // GLSL 언어로 shader source code 작성
-    std::string vertexShader =
-        "#version 330 core\n"
-        "\n"
-        "layout(location = 0) in vec4 position;\n"      // 여기 있는 location = 0가, glEnableVertexAttribArray의 parameter와 glVertexAttribPointer의 parameter 1의 의미함
-                                                        // input이 들어오기 때문에 in 키워드 사용 & position 부분은 아무 이름으로 해도 괜찮음
-        "\n"
-        "void main()\n"
-        "{\n"
-        "    gl_Position = position;\n"                 // 3개의 값만 전달했지만, 알아서 vec4로 변환
-        "}";
-    std::string fragShader =
-        "#version 330 core\n"
-        "\n"
-        "layout(location = 0) out vec4 color;\n"        // 출력 color 
-        "\n"
-        "void main()\n"
-        "{\n"
-        "    color = vec4(1.f, 1.f, 0.f, 1.f);\n"       // 노란색 변환(각 vertex마다 어떤 색을 출력할지 결정)
-        "}";
+    // shader source parsing
+    ShaderProgramSource source = ParseShader("resource/shaders/Basic.shader");
 
     // shader program 생성 및 shader program object ID 저장
-    unsigned int shader = CreateShader(vertexShader, fragShader);
+    unsigned int shader = CreateShader(source.VertexSource, source.FragSource);
 
     // shader program bind(shader program을 activate 상태로 전환)
     glUseProgram(shader);      
@@ -162,8 +220,17 @@ int main()
         // back buffer의 내용 clear
         glClear(GL_COLOR_BUFFER_BIT);
 
+        // 현재 activatee된 것을 deactivate
+        // glUseProgram(0);
+        // -> activate function의 parameter에 0을 넣으면 현재 activate된 것이 deactivate 된다.
+
         // draw
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // glDrawArrays(GL_TRIANGLES, 0, 3);    // -> index array를 사용하면 glDrawElements()를 사용
+        GLCALL(glDrawElements(GL_TRIANGLES,     // draw할 polygon 종류
+                              triangleNum * 3,  // 그릴 index의 개수
+                              GL_UNSIGNED_INT,  // index array의 data type
+                              nullptr));        // offset 포인터
+        // -> gl function call 중 error 발생 시, console 창에서 error 내용 확인 가능
 
         // swap front and back buffers
         glfwSwapBuffers(window);

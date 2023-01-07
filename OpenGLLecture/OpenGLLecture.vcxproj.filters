@@ -1,12 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="resource">
+      <UniqueIdentifier>{4216e1b0-c7bd-472f-a3c8-69a48e69eb39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource\shaders">
+      <UniqueIdentifier>{aff94d63-7a93-45ca-baff-0578429a4944}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\shaders\Basic.shader" />
   </ItemGroup>
 </Project>

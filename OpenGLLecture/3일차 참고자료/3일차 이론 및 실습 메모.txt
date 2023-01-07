@@ -1,0 +1,57 @@
+* 이론
+컴퓨터 그래픽스의 일반적인 Rendering pipeline 과정
+1) vertex shader
+2) rasterizer : interpolation 작업
+3) fragment shader(pixel shader) : pixel 색상 결정
+4) output merger : 결과 이미지 output
+- vertex shader, fragment shader : 프로그래밍 가능
+- rasterizer, output merger : hard-wired되어 있음(GPU에 정해진 규칙에 따라 자동으로 계산), 프로그래밍 불가능
+
+vertex shader의 중요한 역할 : vertex transform
+- vertex 변환 과정 : object space --(world transform, model transform)--> world space --(view transform)--> camera space --(projection transform)--> clip space
+  -> transform : 현재 space에서 본 좌표를 다음 space의 좌표로 변환
+      -> 현재 space에서 본 좌표를 다음 space의 origin과 basis를 이용해 transform한다.
+
+trasform의 종류 : Scaling, Rotation, Translation
+1) Scaling : 좌표 scaling
+2) Rotation : 좌표 회전
+   -> 기본적으로 CCW 방향으로 rotate
+3) Translation : 좌표 이동
+   - Homogeneous coordinate(동차 좌표계)를 사용
+     -> Homegeneous coordinate : 일반적으로 사용하는 Cartesian coordinate에 w축을 추가한 coordinate
+         - (x, y)좌표에 w축을 추가해 (x, y, 1)로 표현하여, 행렬의 덧셈을 행렬의 곱으로 표현 가능
+         - w축 : Homogeneous coordinate를 Cartesian coordinate로 변환할 때, x와 y에 나눠주는 값
+           - w축이 반드시 1일 필요 없음(임의로 w값을 정할 수 있음)
+             -> (nx, ny, n)으로 표현 가능하고, n으로 어떤 숫자가 오든 상관 없다.
+         - Cartesian coordinate에서 (x, y) == Homogeneous coordinate에서 (nx, ny, n)
+   - Translation matrix에 (x, y, 1)을 곱한다.
+     (1 0 dx)
+     (0 1 dy)
+     (0 0  1)
+
+* scaling, rotation도 3*3 matrix를 통해 transform하기 위해서는 Homogeneous coordinate를 사용해야 한다.
+  - Scaling matrix
+    (n  0  0)
+    (0  m 0)
+    (0  0  1)
+  - Rotation matrix
+    (cos  -sin  0)
+    (sin   cos  0)
+    (0     0     1)
+
+Transform Composition(Transform 결합) : transform matrix을 한번에 곱한 다음, 좌표에 적용한다.
+- matrix의 곱셈은 commutative(교환 법칙)이 성립하지 않기 때문에, 먼저해야 하는 연산을 matrix의 뒤쪽에 넣는다.
+  ex) 만약 좌표v을 Rotaion, Translation 순서로 변환한다면, 'TRv' 순서로 곱해줘야 한다.('RTv' 순서로 곱하면 다른 결과가 나온다.)
+- Rotation을 (n ,m)을 기준으로 회전하는 방법
+  (1) (x, y)을 (-n, -m)만큼 translation
+  (2) (1)의 결과를, (0, 0)을 기준으로 rotation
+  (3) (2)의 결과를, (n, m)만큼 translation
+  -> 이를 Homogeneous coordinate과 transform composition을 이용하여 표현하면 다음과 같다.
+      Translation(n, m) * Rotation(각도) * Translation(-n, -m)
+
+
+* 실기
+- shader file 내부에서는 #을 통해 shader를 구분한다.
+- 현재 activate된 것을 deactivate 상태로 만들려면, activate function의 parameter에 0을 넣으면 된다.
+- index array을 사용하게 되면, glDrawArrays() function대신에 glDrawElements() function을 사용해야 한다.
+- error 발생 시, GPU에 저장된 error message를 CPU side로 가져와야 한다.
